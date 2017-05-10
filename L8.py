@@ -3,7 +3,7 @@ import numpy as np
 import gdal, os
 
 
-def acquireMetadata():
+def acquireMetadata(path):
     def change_type(x):
         try:
             return float(x.strip('"'))
@@ -24,13 +24,10 @@ def acquireMetadata():
         print('Error loading metadata')
 
 
-def execute(band):
-    band = str(band)
-    for file in os.listdir(path):
-        if file.endswith(band + '.TIF'):
-            inRaster = gdal.Open(os.path.join(path, file))
-            arr = inRaster.ReadAsArray()
-            arr = arr.astype('float32')
+def execute(path, md, band):
+    inRaster = gdal.Open(path)
+    arr = inRaster.ReadAsArray()
+    arr = arr.astype('float32')
     geotrans = inRaster.GetGeoTransform()
     proj = inRaster.GetProjection()
     cols = inRaster.RasterXSize
@@ -45,7 +42,7 @@ def execute(band):
             arr[:, i[0]:i[1]] = (M_ro * arr[:, i[0]:i[1]] + A_ro) / np.sin(SE)
         outName = "B" + band + '_Refl.TIF'
     else:
-        # calculate brigthness temperature in celcius
+        # calculate brigthness temperature in celcius for thermal bands
         M_lambda = md.get_value("RADIANCE_MULT_BAND_" + band, 'Value')
         A_lambda = md.get_value("RADIANCE_ADD_BAND_" + band, 'Value')
         K2 = md.get_value("K2_CONSTANT_BAND_" + band, 'Value')
@@ -65,6 +62,12 @@ def execute(band):
     outRaster.FlushCache()
 
 
-path = r"D:\GIS\Landsat8 Data"
-md = acquireMetadata()
-for band_no in range(1,3): execute(band_no)
+folder_path = os.path.abspath(input("Folder: "))
+metadata = acquireMetadata(folder_path)
+for fname in os.listdir(folder_path):
+    if fname.endswith('10.TIF') or fname.endswith('11.TIF'):
+        band_no = fname[-6:-4]
+    else:
+        band_no = fname[-5]
+    raster_path = os.path.join(folder_path, fname)
+    execute(raster_path, metadata, band_no)
